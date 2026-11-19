@@ -1,4 +1,5 @@
-from tasks import add_task, complete_task, delete_task, get_tasks, load_tasks
+from storage import StorageError, load_storage, save_storage
+from tasks import add_task, complete_task, delete_task, get_tasks
 
 
 def print_help() -> None:
@@ -28,17 +29,26 @@ def print_tasks(tasks: list[dict]) -> None:
     print()
 
 
+def _save_state(tasks: list[dict]) -> None:
+    """Сохраняет текущее состояние и выводит сообщение при ошибке записи."""
+    try:
+        save_storage(tasks)
+    except StorageError as error:
+        print(f"Предупреждение: {error}")
+
+
 def handle_add(tasks: list[dict], args_text: str) -> None:
     """Обрабатывает команду добавления задания."""
     parts = [part.strip() for part in args_text.split(";")]
     if len(parts) != 3 or not all(parts):
         print(
             "Ошибка: укажите предмет, название и срок через точку с запятой.\n"
-            "Пример: add Информационные технологии; Лабораторная работа № 2; 10.11"
+            "Пример: add Информационные технологии; Лабораторная работа № 3; 20.11"
         )
         return
     subject, title, deadline = parts
     task = add_task(tasks, subject, title, deadline)
+    _save_state(tasks)
     print(f"Задание добавлено с ID {task['id']}.")
 
 
@@ -54,6 +64,7 @@ def handle_done(tasks: list[dict], args_text: str) -> None:
         return
 
     if complete_task(tasks, task_id):
+        _save_state(tasks)
         print(f"Задание с ID {task_id} отмечено как выполненное.")
     else:
         print(f"Ошибка: задание с ID {task_id} не найдено.")
@@ -71,6 +82,7 @@ def handle_delete(tasks: list[dict], args_text: str) -> None:
         return
 
     if delete_task(tasks, task_id):
+        _save_state(tasks)
         print(f"Задание с ID {task_id} удалено.")
     else:
         print(f"Ошибка: задание с ID {task_id} не найдено.")
@@ -78,7 +90,13 @@ def handle_delete(tasks: list[dict], args_text: str) -> None:
 
 def main() -> None:
     """Точка входа: загружает состояние и запускает цикл обработки команд."""
-    tasks = load_tasks()
+    try:
+        tasks = load_storage()
+    except StorageError as error:
+        print(f"Ошибка загрузки данных: {error}")
+        print("Приложение запущено с пустым списком заданий.")
+        tasks = []
+
     print("Помощник по учёбе запущен. Введите 'help' для просмотра команд.")
 
     while True:
